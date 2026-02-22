@@ -47,17 +47,17 @@ class ScoreCalculator {
     int riskScore = 0;
 
     final strideVariability = _computeVariability(metrics.strideIntervals);
-    if (strideVariability > 25)
+    if (strideVariability > 25) {
       riskScore += 2;
-    else if (strideVariability > 15) riskScore += 1;
+    } else if (strideVariability > 15) riskScore += 1;
 
-    if (metrics.symmetry < 40)
+    if (metrics.symmetry < 40) {
       riskScore += 2;
-    else if (metrics.symmetry < 60) riskScore += 1;
+    } else if (metrics.symmetry < 60) riskScore += 1;
 
-    if (metrics.strideConsistency < 40)
+    if (metrics.strideConsistency < 40) {
       riskScore += 2;
-    else if (metrics.strideConsistency < 60) riskScore += 1;
+    } else if (metrics.strideConsistency < 60) riskScore += 1;
 
     if (riskScore >= 4) return 'high';
     if (riskScore >= 2) return 'moderate';
@@ -83,7 +83,9 @@ extension on double {
           : _sqrt(this);
   double _sqrt(double x) {
     double z = x;
-    for (int i = 0; i < 50; i++) z -= (z * z - x) / (2 * z);
+    for (int i = 0; i < 50; i++) {
+      z -= (z * z - x) / (2 * z);
+    }
     return z;
   }
 }

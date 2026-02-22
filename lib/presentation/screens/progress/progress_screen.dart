@@ -32,8 +32,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading)
+    if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     final spots = _sessions
         .asMap()
@@ -89,7 +90,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                         minY: 0,
                         maxY: 100,
                         gridData:
-                            FlGridData(show: true, horizontalInterval: 20),
+                            const FlGridData(show: true, horizontalInterval: 20),
                         borderData: FlBorderData(show: false),
                         titlesData: FlTitlesData(
                           bottomTitles: AxisTitles(
@@ -110,9 +111,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                   style: const TextStyle(fontSize: 11)),
                             ),
                           ),
-                          topTitles: AxisTitles(
+                          topTitles: const AxisTitles(
                               sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: AxisTitles(
+                          rightTitles: const AxisTitles(
                               sideTitles: SideTitles(showTitles: false)),
                         ),
                         lineBarsData: [
@@ -123,7 +124,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                               colors: [AppColors.primary, AppColors.secondary],
                             ),
                             barWidth: 3,
-                            dotData: FlDotData(show: true),
+                            dotData: const FlDotData(show: true),
                             belowBarData: BarAreaData(
                               show: true,
                               gradient: LinearGradient(

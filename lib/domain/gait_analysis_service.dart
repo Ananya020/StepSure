@@ -106,7 +106,9 @@ class GaitAnalysisService {
   double _mySqrt(double x) {
     if (x <= 0) return 0;
     double z = x;
-    for (int i = 0; i < 50; i++) z -= (z * z - x) / (2 * z);
+    for (int i = 0; i < 50; i++) {
+      z -= (z * z - x) / (2 * z);
+    }
     return z;
   }
 

@@ -6,7 +6,6 @@ import 'presentation/providers/session_provider.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/screens/auth/login_screen.dart';
 import 'presentation/screens/home/home_screen.dart';
-import 'presentation/screens/splash/splash_screen.dart';
 import 'core/constants/app_colors.dart';
 
 void main() async {
@@ -38,7 +37,7 @@ class GaitRehabApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
           useMaterial3: true,
         ),
-        home: const SplashScreen(next: AuthGate()),
+        home: const AuthGate(),
       ),
     );
   }
@@ -53,7 +52,7 @@ class AuthGate extends StatelessWidget {
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
         final session = Supabase.instance.client.auth.currentSession;
-        return session != null ? HomeScreen() : const LoginScreen();
+        return session != null ? const HomeScreen() : const LoginScreen();
       },
     );
   }

@@ -127,13 +127,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // ── Header ──
                 SliverToBoxAdapter(
                   child: Container(
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         colors: [AppColors.primary, AppColors.secondary],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: const BorderRadius.only(
+                      borderRadius: BorderRadius.only(
                         bottomLeft: Radius.circular(32),
                         bottomRight: Radius.circular(32),
                       ),
@@ -152,7 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.08),
                                 blurRadius: 16,
-                                offset: Offset(0, 6),
+                                offset: const Offset(0, 6),
                               ),
                             ],
                             border: Border.all(
@@ -213,7 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               _StatPill(
                                 label: 'Avg Score',
                                 value:
-                                    '${(_stats?['avg_score'] as double? ?? 0).toStringAsFixed(1)}',
+                                    (_stats?['avg_score'] as double? ?? 0).toStringAsFixed(1),
                               ),
                               Container(
                                   width: 1, height: 36, color: Colors.white30),
@@ -283,7 +283,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     setState(() => _reminderEnabled = val);
                                     _saveReminder(val, _reminderTime);
                                   },
-                                  activeColor: AppColors.primary,
+                                  activeThumbColor: AppColors.primary,
                                 ),
                               ],
                             ),
@@ -426,6 +426,7 @@ class _Card extends StatelessWidget {
     required this.children,
   });
 
+  @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -437,7 +438,7 @@ class _Card extends StatelessWidget {
           BoxShadow(
             color: AppColors.primary.withOpacity(0.06),
             blurRadius: 12,
-            offset: Offset(0, 4),
+            offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(color: AppColors.danger.withOpacity(0.10)),

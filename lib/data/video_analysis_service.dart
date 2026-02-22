@@ -18,6 +18,7 @@ import '../domain/score_calculator.dart';
 ///
 /// Sampling rate: 5 fps (one frame every 200 ms).
 class VideoAnalysisService {
+  FeedbackEngine get feedbackEngine => _feedbackEngine;
   late final PoseDetector _detector;
   late final GaitAnalysisService _gaitService;
   late final FeedbackEngine _feedbackEngine;
@@ -31,7 +32,7 @@ class VideoAnalysisService {
         model: PoseDetectionModel.accurate,
       ),
     );
-    _feedbackEngine = FeedbackEngine();
+    _feedbackEngine = FeedbackEngine(textOnly: true);
     _gaitService = GaitAnalysisService(feedbackEngine: _feedbackEngine);
   }
 
@@ -50,14 +51,37 @@ class VideoAnalysisService {
     void Function(double progress)? onProgress,
     void Function(String log)? onLog, // Optional log callback
   }) async {
+    // ── Check if video file exists and is long enough ──
+    final videoFile = File(videoPath);
+    if (!videoFile.existsSync()) {
+      onLog?.call('[ERROR] Video file does not exist at $videoPath');
+      throw Exception('Video file does not exist at $videoPath');
+    }
+    // Check video duration (requires video_player)
+    final controller = VideoPlayerController.file(videoFile);
+    try {
+      await controller.initialize();
+    } catch (e) {
+      onLog?.call('[ERROR] Could not initialize video: $e');
+      throw Exception('Could not initialize video: $e');
+    }
+    final duration = controller.value.duration;
+    if (duration.inSeconds < 2) {
+      onLog?.call(
+          '[ERROR] Video is too short (${duration.inSeconds}s). Minimum 2 seconds required.');
+      throw Exception(
+          'Video is too short (${duration.inSeconds}s). Minimum 2 seconds required.');
+    }
+    await controller.dispose();
+
     // ── Extract frames using platform channel ──────────────────────────────
     final tempDir = await Directory.systemTemp.createTemp();
     final frameFiles = <File>[];
-    final totalFrames = 50;
+    const totalFrames = 50;
     try {
-      final MethodChannel _channel = MethodChannel('video_frame_extractor');
+      const MethodChannel channel = MethodChannel('video_frame_extractor');
       final List<dynamic>? thumbnails =
-          await _channel.invokeMethod('extractFrames', {
+          await channel.invokeMethod('extractFrames', {
         'videoPath': videoPath,
         'fps': 5,
         'width': 720,
@@ -72,14 +96,24 @@ class VideoAnalysisService {
           frameFiles.add(file);
           onProgress?.call((i + 1) / totalFrames);
         }
+      } else {
+        onLog?.call('[ERROR] Frame extraction returned null.');
+        throw Exception('Frame extraction failed: No frames returned.');
       }
-    } catch (e) {
-      onLog?.call('[ERROR] Frame extraction failed: $e');
+    } on MissingPluginException catch (e) {
+      onLog?.call(
+          '[ERROR] Frame extraction not implemented on this platform: $e');
+      throw Exception(
+          'Frame extraction is not supported on this platform. Please ensure the video_frame_extractor plugin is implemented for your device.');
+    } catch (e, stack) {
+      onLog?.call('[ERROR] Frame extraction failed: $e\n$stack');
+      throw Exception('Frame extraction failed: $e');
     }
     if (frameFiles.length < 10) {
       onLog?.call('[ERROR] Video is too short or frame extraction failed.');
       throw Exception('Video is too short or frame extraction failed.');
     }
+    _feedbackEngine.feedbackMessages.clear();
     _gaitService.startSession();
     int posesDetected = 0;
     for (int i = 0; i < frameFiles.length; i++) {

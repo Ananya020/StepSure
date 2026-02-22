@@ -202,7 +202,7 @@ class _RecordingScreenState extends State<RecordingScreen> {
   String? _cameraError;
   Pose? _currentPose;
   Size? _imageSize;
-  InputImageRotation _inputRotation = InputImageRotation.rotation0deg;
+  final InputImageRotation _inputRotation = InputImageRotation.rotation0deg;
   bool _isRecording = false;
   int _sessionSeconds = 0;
   DateTime _sessionStart = DateTime.now();

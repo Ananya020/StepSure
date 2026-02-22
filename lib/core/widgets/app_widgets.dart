@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../constants/app_theme.dart';
-import 'package:gait_rehab/core/constants/app_text.dart';
 
 // ─── Score Ring Widget ────────────────────────────────────────────────────────
 class ScoreRing extends StatefulWidget {

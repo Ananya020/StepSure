@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:gait_rehab/core/constants/app_colors.dart';
 import 'package:intl/intl.dart';
 import '../../core/widgets/risk_badge.dart';
-import '../../core/widgets/section_header.dart';
 import '../instructions/primary_button.dart';
 
 class ReportDetailScreen extends StatelessWidget {

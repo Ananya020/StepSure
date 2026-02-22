@@ -49,9 +49,9 @@ class _ReportsListScreenState extends State<ReportsListScreen> {
         headerSliverBuilder: (_, __) => [
           SliverToBoxAdapter(
             child: Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppColors.primary,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(32),
                   bottomRight: Radius.circular(32),
                 ),

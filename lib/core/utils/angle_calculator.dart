@@ -73,7 +73,9 @@ class AngleCalculator {
     if (leftShoulder == null ||
         rightShoulder == null ||
         leftHip == null ||
-        rightHip == null) return 0;
+        rightHip == null) {
+      return 0;
+    }
 
     final shoulderMidX = (leftShoulder.x + rightShoulder.x) / 2;
     final shoulderMidY = (leftShoulder.y + rightShoulder.y) / 2;

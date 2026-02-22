@@ -19,7 +19,7 @@ class ScoreRing extends StatelessWidget {
             value: score / 100,
             strokeWidth: strokeWidth,
             backgroundColor: Colors.grey[300],
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
           ),
           Text('${score.toStringAsFixed(0)}%',
               style:

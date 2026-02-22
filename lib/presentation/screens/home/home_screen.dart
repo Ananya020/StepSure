@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:gait_rehab/core/constants/app_colors.dart';
 import 'package:gait_rehab/core/constants/app_text.dart';
 import 'package:gait_rehab/core/widgets/widgets.dart';
-import 'package:gait_rehab/features/notifications/notifications_screen.dart';
 import 'package:lottie/lottie.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../instructions/instructions_screen.dart';
@@ -23,42 +22,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  Map<String, dynamic>? _profile;
-  Map<String, dynamic>? _lastSession;
-  bool _loading = true;
-
-  final _client = Supabase.instance.client;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  Future<void> _loadData() async {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return;
-
-    try {
-      final profile =
-          await _client.from('profiles').select().eq('id', uid).maybeSingle();
-
-      final sessions = await _client
-          .from('sessions')
-          .select()
-          .eq('user_id', uid)
-          .order('session_date', ascending: false)
-          .limit(1);
-
-      setState(() {
-        _profile = profile;
-        _lastSession = sessions.isNotEmpty ? sessions.first : null;
-        _loading = false;
-      });
-    } catch (_) {
-      setState(() => _loading = false);
-    }
-  }
 
   final _pages = [
     const _HomeTab(),
@@ -70,31 +33,50 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
+      body: IndexedStack(index: _currentIndex, children: _pages),
+      bottomNavigationBar: _BottomNav(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardBg,
-          border: Border(
-              top: BorderSide(color: AppColors.primary.withOpacity(0.15))),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _navItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
-                _navItem(1, Icons.show_chart_rounded, Icons.show_chart_outlined,
-                    'Progress'),
-                _navItem(2, Icons.description_rounded,
-                    Icons.description_outlined, 'Reports'),
-                _navItem(3, Icons.person_rounded, Icons.person_outline_rounded,
-                    'Profile'),
-              ],
-            ),
+    );
+  }
+}
+
+// ─── Bottom Nav ───────────────────────────────────────────────────────────────
+class _BottomNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  const _BottomNav({required this.currentIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade100, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _navItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
+              _navItem(1, Icons.show_chart_rounded, Icons.show_chart_outlined,
+                  'Progress'),
+              _navItem(2, Icons.description_rounded, Icons.description_outlined,
+                  'Reports'),
+              _navItem(3, Icons.person_rounded, Icons.person_outline_rounded,
+                  'Profile'),
+            ],
           ),
         ),
       ),
@@ -102,25 +84,25 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _navItem(int index, IconData active, IconData inactive, String label) {
-    final isActive = _currentIndex == index;
+    final isActive = currentIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
         decoration: BoxDecoration(
           color: isActive
-              ? AppColors.primary.withOpacity(0.1)
+              ? const Color(0xFF0A7EA4).withOpacity(0.10)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               isActive ? active : inactive,
-              color: isActive ? AppColors.primary : AppColors.textSecondary,
+              color: isActive ? const Color(0xFF0A7EA4) : Colors.grey.shade400,
               size: 24,
             ),
             const SizedBox(height: 3),
@@ -128,7 +110,8 @@ class _HomeScreenState extends State<HomeScreen> {
               label,
               style: TextStyle(
                 fontSize: 11,
-                color: isActive ? AppColors.primary : AppColors.textSecondary,
+                color:
+                    isActive ? const Color(0xFF0A7EA4) : Colors.grey.shade400,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
@@ -147,11 +130,23 @@ class _HomeTab extends StatefulWidget {
   State<_HomeTab> createState() => _HomeTabState();
 }
 
-class _HomeTabState extends State<_HomeTab> {
+class _HomeTabState extends State<_HomeTab> with TickerProviderStateMixin {
   final _client = Supabase.instance.client;
   Map<String, dynamic>? _profile;
   Map<String, dynamic>? _lastSession;
   bool _loading = true;
+
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  // Staggered slide-up animations for sections
+  late AnimationController _staggerController;
+  late Animation<Offset> _sessionSlide;
+  late Animation<double> _sessionFade;
+  late Animation<Offset> _statsSlide;
+  late Animation<double> _statsFade;
+  late Animation<Offset> _tipSlide;
+  late Animation<double> _tipFade;
 
   double? _toDouble(dynamic value) {
     if (value == null) return null;
@@ -163,7 +158,59 @@ class _HomeTabState extends State<_HomeTab> {
   @override
   void initState() {
     super.initState();
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _fadeAnimation =
+        CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+
+    _staggerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+
+    _sessionSlide =
+        Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _staggerController,
+        curve: const Interval(0.0, 0.55, curve: Curves.easeOutCubic),
+      ),
+    );
+    _sessionFade = Tween(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+          parent: _staggerController, curve: const Interval(0.0, 0.55)),
+    );
+    _statsSlide = Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _staggerController,
+        curve: const Interval(0.25, 0.75, curve: Curves.easeOutCubic),
+      ),
+    );
+    _statsFade = Tween(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+          parent: _staggerController, curve: const Interval(0.25, 0.75)),
+    );
+    _tipSlide = Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _staggerController,
+        curve: const Interval(0.50, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+    _tipFade = Tween(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+          parent: _staggerController, curve: const Interval(0.50, 1.0)),
+    );
+
     _load();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _staggerController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -183,8 +230,13 @@ class _HomeTabState extends State<_HomeTab> {
         _lastSession = sessions.isNotEmpty ? sessions.first : null;
         _loading = false;
       });
+      _fadeController.forward();
+      await Future.delayed(const Duration(milliseconds: 200));
+      _staggerController.forward();
     } catch (_) {
       setState(() => _loading = false);
+      _fadeController.forward();
+      _staggerController.forward();
     }
   }
 
@@ -193,417 +245,155 @@ class _HomeTabState extends State<_HomeTab> {
     final name = _profile?['full_name']?.toString().split(' ').first ?? 'There';
     final score = _toDouble(_lastSession?['recovery_score']);
     final risk = _lastSession?['fall_risk'] as String?;
+    final cadence = _toDouble(_lastSession?['cadence']);
+    final symmetry = _toDouble(_lastSession?['symmetry']);
+    final stride = _toDouble(_lastSession?['stride_length']);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF3F7FA),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
-              slivers: [
-                // Top bar with welcome and notification icon
-                SliverToBoxAdapter(
-                  child: SafeArea(
-                    bottom: false,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.fromLTRB(20, 30, 20, 16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.primary.withOpacity(0.10),
-                            Colors.white.withOpacity(0.0)
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.04),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Welcome back!',
-                                style: AppText.h1.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.textDark,
-                                  fontSize: 30,
-                                  letterSpacing: -1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                "Let's get moving, $name!",
-                                style: AppText.body.copyWith(
-                                  color: AppColors.textMid,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          // Enhanced glassmorphic notification icon with badge
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              ClipOval(
-                                child: Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.white.withOpacity(0.22),
-                                        Colors.white.withOpacity(0.12),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: Colors.lightBlue.withOpacity(0.6),
-                                      width: 1.2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.08),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(
-                                        sigmaX: 10, sigmaY: 10),
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.notifications_none_outlined,
-                                        size: 28,
-                                        color: Colors.lightBlue,
-                                      ),
-                                      onPressed: () {},
-                                      splashRadius: 24,
-                                      tooltip: 'Notifications',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Notification badge
-                              const NotificationBadge(),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+          ? _LoadingView()
+          : FadeTransition(
+              opacity: _fadeAnimation,
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  // ── Hero Header with walking animation ─────────────────
+                  SliverToBoxAdapter(
+                    child: _HeroHeader(name: name, score: score, risk: risk),
                   ),
-                ),
-                // ── Hero appointment-style card ───────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withOpacity(0.08),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: HeroCard(
-                        padding: EdgeInsets.zero,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(38, 22, 140, 22),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 6),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Ready for your\ngait session?',
-                                    style: AppText.heroTitle.copyWith(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -0.8,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  // Session info pills
-                                  if (score != null) ...[
-                                    _InfoPill(
-                                      icon: Icons.timeline_rounded,
-                                      text:
-                                          'Last score: ${score.toStringAsFixed(1)}/100',
-                                    ),
-                                    const SizedBox(height: 8),
-                                  ],
-                                  if (risk != null)
-                                    _InfoPill(
-                                      icon: Icons.shield_outlined,
-                                      text:
-                                          'Fall risk: ${risk[0].toUpperCase()}${risk.substring(1)}',
-                                    )
-                                  else
-                                    const _InfoPill(
-                                      icon: Icons.play_circle_outline_rounded,
-                                      text: 'Start your first session',
-                                    ),
-                                ],
-                              ),
-                            ),
-                            // Illustration placeholder: walking.json animation
-                            Positioned(
-                              right: 0,
-                              top: 0,
-                              bottom: 0,
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(24),
-                                  bottomRight: Radius.circular(24),
-                                ),
-                                child: Container(
-                                  width: 130,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        AppColors.heroEnd.withOpacity(0),
-                                        AppColors.heroEnd,
-                                      ],
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: SizedBox(
-                                      width: 90,
-                                      height: 90,
-                                      child: Lottie.asset(
-                                        'assets/animations/walking2.json',
-                                        repeat: true,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // ── Main Actions ──
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Start Session',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        // Live Recording card
-                        _ActionCard(
-                          title: 'Live Recording',
-                          subtitle:
-                              'Real-time gait analysis with pose overlay and voice feedback',
-                          icon: Icons.videocam_rounded,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF0A7EA4), Color(0xFF0D9FCC)],
-                          ),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const InstructionsScreen()),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        // Upload Video card
-                        _ActionCard(
-                          title: 'Upload Video',
-                          subtitle:
-                              'Analyse an existing walking video from your library',
-                          icon: Icons.upload_file_rounded,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF00A890), Color(0xFF00D4AA)],
-                          ),
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const UploadScreen()),
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        // ── Quick Stats ──
-                        // Glassmorphic Your Stats card with animation
-                        Container(
-                          padding: const EdgeInsets.all(22),
-                          margin: const EdgeInsets.only(top: 8, bottom: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.13),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.09),
-                                blurRadius: 18,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.18),
-                              width: 1.2,
-                            ),
-                          ),
+
+                  // ── Start Session ──────────────────────────────────────
+                  SliverToBoxAdapter(
+                    child: SlideTransition(
+                      position: _sessionSlide,
+                      child: FadeTransition(
+                        opacity: _sessionFade,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.bar_chart_rounded,
-                                      color: Color(0xFF3AABAB), size: 22),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Your Stats',
-                                    style: AppText.h2.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.textPrimary,
-                                      fontSize: 18,
-                                      letterSpacing: -0.3,
-                                    ),
-                                  ),
+                              const _SectionTitle(
+                                  title: 'Start Session',
+                                  color: Color(0xFF0A7EA4)),
+                              const SizedBox(height: 16),
+                              _SessionCard(
+                                title: 'Live Recording',
+                                subtitle:
+                                    'Real-time gait analysis with pose overlay & voice feedback',
+                                icon: Icons.videocam_rounded,
+                                // Walking animation inside this card
+                                lottieAsset: 'assets/animations/walking2.json',
+                                colors: const [
+                                  Color(0xFF0A7EA4),
+                                  Color(0xFF0D9FCC)
                                 ],
+                                tag: 'RECOMMENDED',
+                                onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const InstructionsScreen())),
                               ),
-                              const SizedBox(height: 18),
-                              AnimatedStatsBar(
-                                label: 'Cadence',
-                                value: _toDouble(_lastSession?['cadence']),
-                                max: 200,
-                                unit: 'spm',
-                                icon: Icons.speed_rounded,
-                                color: AppColors.primary,
-                              ),
-                              const SizedBox(height: 16),
-                              AnimatedStatsBar(
-                                label: 'Symmetry',
-                                value: _toDouble(_lastSession?['symmetry']),
-                                max: 100,
-                                unit: '%',
-                                icon: Icons.balance_rounded,
-                                color: AppColors.secondary,
-                              ),
-                              const SizedBox(height: 16),
-                              AnimatedStatsBar(
-                                label: 'Stride',
-                                value:
-                                    _toDouble(_lastSession?['stride_length']),
-                                max: 2.0,
-                                unit: 'm',
-                                icon: Icons.straighten_rounded,
-                                color: AppColors.primary,
+                              const SizedBox(height: 12),
+                              _SessionCard(
+                                title: 'Upload Video',
+                                subtitle:
+                                    'Analyse an existing walking video from your library',
+                                icon: Icons.upload_file_rounded,
+                                colors: const [
+                                  Color(0xFF00A890),
+                                  Color(0xFF00C9AA)
+                                ],
+                                onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const UploadScreen())),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 28),
-                        // ── Tips ──
-                        const _TipsCard(),
-                        const SizedBox(height: 20),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+
+                  // ── Stats ──────────────────────────────────────────────
+                  SliverToBoxAdapter(
+                    child: SlideTransition(
+                      position: _statsSlide,
+                      child: FadeTransition(
+                        opacity: _statsFade,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _SectionTitle(
+                                  title: 'Last Session Stats',
+                                  color: Color(0xFF00A890)),
+                              const SizedBox(height: 16),
+                              _StatsGrid(
+                                cadence: cadence,
+                                symmetry: symmetry,
+                                stride: stride,
+                                score: score,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // ── Daily Tip ──────────────────────────────────────────
+                  SliverToBoxAdapter(
+                    child: SlideTransition(
+                      position: _tipSlide,
+                      child: FadeTransition(
+                        opacity: _tipFade,
+                        child: const Padding(
+                          padding: EdgeInsets.fromLTRB(20, 24, 20, 40),
+                          child: _TipCard(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
     );
   }
 }
 
-class _ActionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final LinearGradient gradient;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.gradient,
-    required this.onTap,
-  });
-
+// ─── Loading View with Lottie ─────────────────────────────────────────────────
+class _LoadingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: gradient.colors.first.withOpacity(0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
+    return Container(
+      color: const Color(0xFFF3F7FA),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: Colors.white, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Text(subtitle,
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.8), fontSize: 12)),
-                ],
+            SizedBox(
+              width: 140,
+              height: 140,
+              child: Lottie.asset(
+                'assets/animations/walking2.json',
+                repeat: true,
+                fit: BoxFit.contain,
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                color: Colors.white70, size: 16),
+            const SizedBox(height: 16),
+            Text(
+              'Loading your progress…',
+              style: TextStyle(
+                color: const Color(0xFF0A7EA4).withOpacity(0.7),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -611,178 +401,455 @@ class _ActionCard extends StatelessWidget {
   }
 }
 
-// Animated stats bar widget
-class AnimatedStatsBar extends StatefulWidget {
-  final String label;
-  final double? value;
-  final double max;
-  final String unit;
-  final IconData icon;
+// ─── Section Title ─────────────────────────────────────────────────────────────
+class _SectionTitle extends StatelessWidget {
+  final String title;
   final Color color;
-
-  const AnimatedStatsBar({
-    required this.label,
-    required this.value,
-    required this.max,
-    required this.unit,
-    required this.icon,
-    required this.color,
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  State<AnimatedStatsBar> createState() => _AnimatedStatsBarState();
-}
-
-class _AnimatedStatsBarState extends State<AnimatedStatsBar>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _animation = Tween<double>(
-      begin: 0,
-      end: (widget.value ?? 0) / widget.max,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    ));
-    _controller.forward();
-  }
-
-  @override
-  void didUpdateWidget(covariant AnimatedStatsBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value) {
-      _animation = Tween<double>(
-        begin: 0,
-        end: (widget.value ?? 0) / widget.max,
-      ).animate(CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ));
-      _controller.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const _SectionTitle({required this.title, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    final displayValue = widget.value == null
-        ? '--'
-        : widget.label == 'Stride'
-            ? widget.value!.toStringAsFixed(2)
-            : widget.value!.toStringAsFixed(0);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: widget.color.withOpacity(0.13),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(widget.icon, color: widget.color, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              widget.label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '$displayValue ${widget.unit}',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-                color: widget.color,
-              ),
-            ),
-          ],
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
-        const SizedBox(height: 8),
-        AnimatedBuilder(
-          animation: _animation,
-          builder: (context, child) {
-            return Stack(
-              children: [
-                Container(
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                FractionallySizedBox(
-                  widthFactor: _animation.value.clamp(0, 1),
-                  child: Container(
-                    height: 12,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          widget.color.withOpacity(0.7),
-                          widget.color.withOpacity(0.35),
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF1A2332),
+            letterSpacing: -0.5,
+          ),
         ),
       ],
     );
   }
 }
 
-class _InfoPill extends StatelessWidget {
-  final IconData icon;
-  final String text;
+// ─── Hero Header ──────────────────────────────────────────────────────────────
+class _HeroHeader extends StatelessWidget {
+  final String name;
+  final double? score;
+  final String? risk;
 
-  const _InfoPill({required this.icon, required this.text});
+  const _HeroHeader({required this.name, this.score, this.risk});
+
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  Color _riskColor(String? r) {
+    switch (r?.toLowerCase()) {
+      case 'low':
+        return const Color(0xFF00C9AA);
+      case 'high':
+        return const Color(0xFFFF6B6B);
+      default:
+        return const Color(0xFFFFD166);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final riskColor = _riskColor(risk);
+    final riskLabel =
+        risk != null ? '${risk![0].toUpperCase()}${risk!.substring(1)}' : '—';
+
+    return Stack(
+      children: [
+        // Gradient background
+        Container(
+          height: 330,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0A7EA4), Color(0xFF07B5A0)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+
+        // Decorative subtle circles
+        Positioned(
+          top: -50,
+          right: -50,
+          child: Container(
+            width: 220,
+            height: 220,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.06),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 80,
+          right: 50,
+          child: Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.05),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 70,
+          left: -20,
+          child: Container(
+            width: 110,
+            height: 110,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.04),
+            ),
+          ),
+        ),
+
+        // ── Walking animation: floats in bottom-right of header ──
+        // Positioned(
+        //   right: 0,
+        //   bottom: 28, // sits just above the curved cutout
+        //   child: Opacity(
+        //     opacity: 0.22,
+        //     child: SizedBox(
+        //       width: 130,
+        //       height: 130,
+        //       child: Lottie.asset(
+        //         'assets/animations/walking2.json',
+        //         repeat: true,
+        //         fit: BoxFit.contain,
+        //       ),
+        //     ),
+        //   ),
+        // ),
+
+        // Content
+        SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Top bar ──────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Logo + wordmark
+                    Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.20),
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.35),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.directions_walk_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        RichText(
+                          text: const TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'Step',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              TextSpan(
+                                text: 'Sure',
+                                style: TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Notification bell
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        GestureDetector(
+                          onTap: () {},
+                          child: ClipOval(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              child: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.18),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.30),
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.notifications_none_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: -1,
+                          right: -1,
+                          child: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFF4757),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Text(
+                                '1',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 22),
+
+              // ── Greeting + Streak ─────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _greeting(),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.65),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -1.2,
+                              height: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Streak pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border:
+                            Border.all(color: Colors.white.withOpacity(0.25)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Fire animation — use Lottie if you have one,
+                          // otherwise fall back to the icon
+                          Icon(
+                            Icons.local_fire_department_rounded,
+                            color: Color(0xFFFFD166),
+                            size: 18,
+                          ),
+                          SizedBox(width: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '5 day',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1,
+                                ),
+                              ),
+                              Text(
+                                'streak',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ── Score + Risk chips ────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _HeaderChip(
+                        icon: Icons.timeline_rounded,
+                        iconColor: const Color(0xFF64DFDF),
+                        label: 'Recovery',
+                        value: score != null
+                            ? '${score!.toStringAsFixed(1)} / 100'
+                            : '—',
+                        valueColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _HeaderChip(
+                        icon: Icons.shield_outlined,
+                        iconColor: riskColor,
+                        label: 'Fall Risk',
+                        value: riskLabel,
+                        valueColor: riskColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Curved bottom cutout
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            height: 28,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF3F7FA),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(28),
+                topRight: Radius.circular(28),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeaderChip extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const _HeaderChip({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.heroEnd.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        color: Colors.white.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.22)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white70, size: 14),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: const TextStyle(
-              fontFamily: AppText.fontFamily,
-              fontSize: 12,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.22),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 15),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.60),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: valueColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ],
@@ -791,72 +858,405 @@ class _InfoPill extends StatelessWidget {
   }
 }
 
-class NotificationBadge extends StatelessWidget {
-  const NotificationBadge();
+// ─── Session Card (with optional Lottie) ─────────────────────────────────────
+class _SessionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<Color> colors;
+  final String? tag;
+  final String? lottieAsset;
+  final VoidCallback onTap;
+
+  const _SessionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.colors,
+    required this.onTap,
+    this.tag,
+    this.lottieAsset,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      top: -5,
-      right: -5,
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: const BoxDecoration(
-          color: Colors.red,
-          shape: BoxShape.circle,
-        ),
-        child: const Text(
-          '1',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: colors,
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
           ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: colors.first.withOpacity(0.30),
+              blurRadius: 18,
+              offset: const Offset(0, 7),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Icon box OR lottie animation
+            lottieAsset != null
+                ? SizedBox(
+                    width: 54,
+                    height: 54,
+                    child: Lottie.asset(
+                      lottieAsset!,
+                      repeat: true,
+                      fit: BoxFit.contain,
+                    ),
+                  )
+                : Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.20),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 26),
+                  ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (tag != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        tag!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                  ],
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.78),
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.arrow_forward_ios_rounded,
+                  color: Colors.white, size: 14),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _TipsCard extends StatelessWidget {
-  const _TipsCard();
+// ─── Stats Grid ───────────────────────────────────────────────────────────────
+class _StatsGrid extends StatelessWidget {
+  final double? cadence;
+  final double? symmetry;
+  final double? stride;
+  final double? score;
+
+  const _StatsGrid({this.cadence, this.symmetry, this.stride, this.score});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _StatTile(
+                icon: Icons.speed_rounded,
+                label: 'Cadence',
+                value: cadence != null ? cadence!.toStringAsFixed(0) : '—',
+                unit: 'spm',
+                color: const Color(0xFF0A7EA4),
+                progress:
+                    cadence != null ? (cadence! / 200).clamp(0.0, 1.0) : 0,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatTile(
+                icon: Icons.balance_rounded,
+                label: 'Symmetry',
+                value: symmetry != null ? symmetry!.toStringAsFixed(0) : '—',
+                unit: '%',
+                color: const Color(0xFF00A890),
+                progress:
+                    symmetry != null ? (symmetry! / 100).clamp(0.0, 1.0) : 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _StatTile(
+                icon: Icons.straighten_rounded,
+                label: 'Stride',
+                value: stride != null ? stride!.toStringAsFixed(2) : '—',
+                unit: 'm',
+                color: const Color(0xFF6C63FF),
+                progress: stride != null ? (stride! / 2.0).clamp(0.0, 1.0) : 0,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatTile(
+                icon: Icons.monitor_heart_outlined,
+                label: 'Score',
+                value: score != null ? score!.toStringAsFixed(1) : '—',
+                unit: '/100',
+                color: const Color(0xFFFF6B6B),
+                progress: score != null ? (score! / 100).clamp(0.0, 1.0) : 0,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _StatTile extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String unit;
+  final Color color;
+  final double progress;
+
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.color,
+    required this.progress,
+  });
+
+  @override
+  State<_StatTile> createState() => _StatTileState();
+}
+
+class _StatTileState extends State<_StatTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1100));
+    _anim = Tween(begin: 0.0, end: widget.progress)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: widget.color.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(widget.icon, color: widget.color, size: 18),
+              ),
+              Text(
+                widget.unit,
+                style: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            widget.value,
+            style: const TextStyle(
+              color: Color(0xFF1A2332),
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            widget.label,
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          AnimatedBuilder(
+            animation: _anim,
+            builder: (_, __) => Stack(
+              children: [
+                Container(
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: widget.color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                FractionallySizedBox(
+                  widthFactor: _anim.value,
+                  child: Container(
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: widget.color,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Daily Tip ────────────────────────────────────────────────────────────────
+class _TipCard extends StatelessWidget {
+  const _TipCard();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.secondary.withOpacity(0.08),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.secondary.withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: const Border(
+          left: BorderSide(color: Color(0xFF00A890), width: 4),
+        ),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
+          // Lottie lightbulb — fall back to icon if asset not present
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: Lottie.asset(
+              'assets/animations/lightbulb.json',
+              repeat: true,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Container(
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFF00A890).withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.lightbulb_outline_rounded,
-                    color: AppColors.secondary, size: 16),
+                child: const Icon(Icons.lightbulb_rounded,
+                    color: Color(0xFF00A890), size: 18),
               ),
-              const SizedBox(width: 10),
-              const Text('Daily Tip',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                      fontSize: 14)),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          const Text(
-            'For best results, record sessions at the same time each day. Consistency helps your AI coach track improvements accurately.',
-            style: TextStyle(
-                fontSize: 13, color: AppColors.textSecondary, height: 1.5),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Daily Tip',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A2332),
+                    fontSize: 14,
+                  ),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  'For best results, record sessions at the same time each day. Consistency helps your AI coach track improvements accurately.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6B7A8D),
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

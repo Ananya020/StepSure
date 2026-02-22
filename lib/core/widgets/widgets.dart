@@ -147,7 +147,7 @@ class AppSearchBar extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: 16),
-          Icon(Icons.search_rounded, color: AppColors.textLight, size: 20),
+          const Icon(Icons.search_rounded, color: AppColors.textLight, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
@@ -161,7 +161,7 @@ class AppSearchBar extends StatelessWidget {
               ),
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle: TextStyle(
+                hintStyle: const TextStyle(
                   fontFamily: AppText.fontFamily,
                   color: AppColors.textHint,
                   fontSize: 14,

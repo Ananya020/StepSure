@@ -1,12 +1,14 @@
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:flutter/foundation.dart';
 
 class FeedbackEngine {
   final FlutterTts _tts = FlutterTts();
   final Map<String, DateTime> _lastSpoken = {};
   static const Duration _cooldown = Duration(seconds: 6);
 
-  FeedbackEngine() {
+  bool textOnly = false;
+  final List<String> feedbackMessages = [];
+
+  FeedbackEngine({this.textOnly = false}) {
     _initTts();
   }
 
@@ -26,47 +28,52 @@ class FeedbackEngine {
     required double strideConsistency,
   }) {
     if (symmetry < 50) {
-      print('[TTS] Speaking: Try to maintain equal step length on both sides.');
+      _addFeedback('Try to maintain equal step length on both sides.');
       _speak('symmetry', 'Try to maintain equal step length on both sides.');
     } else if (symmetry > 75) {
-      print('[TTS] Speaking: Great symmetry, keep it up!');
+      _addFeedback('Great symmetry, keep it up!');
       _speak('symmetry_good', 'Great symmetry, keep it up!');
     }
 
     if (cadence < 50) {
-      print('[TTS] Speaking: Try to walk a little faster if you can.');
+      _addFeedback('Try to walk a little faster if you can.');
       _speak('cadence', 'Try to walk a little faster if you can.');
     } else if (cadence > 110) {
-      print('[TTS] Speaking: Slow down slightly for better balance.');
+      _addFeedback('Slow down slightly for better balance.');
       _speak('cadence_fast', 'Slow down slightly for better balance.');
     }
 
     if (trunkLean.abs() > 10) {
-      print('[TTS] Speaking: Straighten your posture, stand tall.');
+      _addFeedback('Straighten your posture, stand tall.');
       _speak('posture', 'Straighten your posture, stand tall.');
     }
 
     final kneeDiff = (leftKneeAngle - rightKneeAngle).abs();
     if (kneeDiff > 20) {
       final weaker = leftKneeAngle < rightKneeAngle ? 'left' : 'right';
-      print('[TTS] Speaking: Try to lift your $weaker leg a bit higher.');
+      _addFeedback('Try to lift your $weaker leg a bit higher.');
       _speak('knee', 'Try to lift your $weaker leg a bit higher.');
     }
 
     if (strideConsistency < 50) {
-      if (kDebugMode) {
-        print('[TTS] Speaking: Try to keep your steps more even and rhythmic.');
-      }
+      _addFeedback('Try to keep your steps more even and rhythmic.');
       _speak('consistency', 'Try to keep your steps more even and rhythmic.');
     }
 
     if (symmetry > 70 && cadence >= 60 && trunkLean.abs() < 8) {
-      print('[TTS] Speaking: Good balance, keep going!');
+      _addFeedback('Good balance, keep going!');
       _speak('good', 'Good balance, keep going!');
     }
   }
 
+  void _addFeedback(String message) {
+    if (textOnly) {
+      feedbackMessages.add(message);
+    }
+  }
+
   void _speak(String key, String message) {
+    if (textOnly) return;
     final now = DateTime.now();
     final last = _lastSpoken[key];
     if (last == null || now.difference(last) >= _cooldown) {
